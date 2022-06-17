@@ -38,45 +38,6 @@ def read(environ):
 
 
 def application(environ, start_response):
-    if environ['PATH_INFO'] == '/style.css':
-        style=b'''H2 {
-    font-family: Verdana, Tahoma, Arial, sans-serif;
-}
-H3 {
-    font-family: Verdana, Tahoma, Arial, sans-serif;
-}
-.descTime {
-    font-size: 70%;
-}
-table {
-    display: table;
-    border-collapse: separate;
-    box-sizing: border-box;
-    white-space: normal;
-    line-height: normal;
-    font-weight: normal;
-    font-size: small;
-    font-style: normal;
-    color: -internal-quirk-inherit;
-    text-align: start;
-    border: 1px outset;
-    border-spacing: 0px;
-    border-color: grey;
-    font-variant: normal;
-    font-family: Verdana, Tahoma, Arial, sans-serif;
-}
-p  {
-    font-family: Verdana, Tahoma, Arial, sans-serif;
-    contain: content;
-}
-'''
-        start_response('200 OK', [
-            ('Content-Type', 'text/css; charset=utf-8'),
-            ('Content-Length', str(len(style)))
-        ])
-        return [style]
-
-
     # /CVS/Hello/{ТикетИТС}
     url = environ['PATH_INFO'].split('/')
     if len(url) == 4 and url[1] == 'CVS' and url[2] == 'Hello':
