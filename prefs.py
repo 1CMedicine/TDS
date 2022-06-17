@@ -1,6 +1,6 @@
 APACHE_USER = "www-data"                        # используется в init.py для создания Sqlite базы.
 APACHE_GROUP = "www-data"                       # используется в init.py для создания Sqlite базы.
-DATA_PATH = "/var/www/upload/tds"               # папка, где хранится Sqlite база и zip-файлы отчетов
+DATA_PATH = "/var/www/upload/tds"               # папка, где хранится Sqlite база и ШМД
 SITE_URL = "/a/tds"                             # Часть URL публикации сервиса
 
 CHECK_ITS_USER = True                           # Выполнять проверку логину на ИТС. Для локальных публикаций рекомендуется отключать
