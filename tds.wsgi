@@ -19,10 +19,6 @@ if local_path not in sys.path:
 
 import prefs
 
-CONFIG_NAMES = []
-for name in prefs.CONFIGS:
-    CONFIG_NAMES.append(name)
-
 def read(environ):
     length = int(environ.get('CONTENT_LENGTH', 0))
     stream = environ['wsgi.input']
@@ -48,7 +44,7 @@ def application(environ, start_response):
         login = ""
         if prefs.CHECK_ITS_USER:
             r = requests.post("https://login.1c.ru/rest/public/ticket/check", json={'ticket':url[3],'serviceNick':'informed'})
-            if r.status_code == 403:
+            if r.status_code == 401 or r.status_code == 403:
                 start_response('401 Unauthorized', [('Content-Type', 'text/plain; charset=utf-8')])
                 return ['Не указана действующая подписка на ИТС'.encode('UTF-8')]
             if r.status_code != 200:
@@ -279,7 +275,7 @@ def application(environ, start_response):
                 start_response('401 Unauthorized', [('Content-Type', 'text/plain; charset=utf-8')])
                 return [("Нет активной сессии").encode('UTF-8')]
 
-            if itsLogin[0] not in prefs.VALID_ITS_USERS:
+            if itsLogin[0] != "" and itsLogin[0] not in prefs.VALID_ITS_USERS:
                 conn.close()
                 start_response('401 Unauthorized', [('Content-Type', 'text/plain; charset=utf-8')])
                 return [("У пользователя '"+itsLogin[0]+"' нет прав на загрузку файлов").encode('UTF-8')]
@@ -361,7 +357,7 @@ def application(environ, start_response):
                 start_response('401 Unauthorized', [('Content-Type', 'text/plain; charset=utf-8')])
                 return [("Нет активной сессии").encode('UTF-8')]
 
-            if itsLogin[0] not in prefs.VALID_ITS_USERS:
+            if itsLogin[0] != "" and itsLogin[0] not in prefs.VALID_ITS_USERS:
                 conn.close()
                 start_response('401 Unauthorized', [('Content-Type', 'text/plain; charset=utf-8')])
                 return [("У пользователя '"+itsLogin[0]+"' нет прав на удаление файлов").encode('UTF-8')]
