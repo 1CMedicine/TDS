@@ -19,10 +19,6 @@ if local_path not in sys.path:
 
 import prefs
 
-CONFIG_NAMES = []
-for name in prefs.CONFIGS:
-    CONFIG_NAMES.append(name)
-
 def read(environ):
     length = int(environ.get('CONTENT_LENGTH', 0))
     stream = environ['wsgi.input']
