@@ -32,6 +32,37 @@ def read(environ):
     environ['wsgi.input'] = body
     return body
 
+def loadFNSIref(conn, oid, table) :
+    if prefs.FNSI_userkey is None or len(prefs.FNSI_userkey) == 0 :
+        return
+
+    cursor = conn.cursor()
+    cursor.execute("delete from fnsi_"+table)
+    cursor.close()
+
+    c = int((passport["rowsCount"]-1)/200)+1
+    for page in range(1, c+1) :
+        r = requests.get('https://nsi.rosminzdrav.ru:443/port/rest/data',
+            params = {'userKey': FNSI_userkey, 'identifier': oid, 'page': page, 'size':200},
+            headers = {'Accept': 'application/json'}
+        )
+        data = r.json()
+            
+        for psObject in data["list"] :
+            code = None
+            name = None
+            for obj in psObject :
+                if obj["column"].upper() == 'NAME' :
+                    name = obj["value"]
+                elif obj["column"] == "RECID" or obj["column"] == "ID":
+                    code = obj["value"]
+
+            cursor = conn.cursor()
+            cursor.execute("insert into fnsi_"+table+" values (?, ?)", (code, name))
+            cursor.close()
+
+    conn.commit()
+
 
 def application(environ, start_response):
     # /CVS/Hello/{ТикетИТС}
@@ -344,6 +375,20 @@ def application(environ, start_response):
             file.write(base64.b64decode(t["ДДанные"]))
             file.close()
 
+            cur = conn.cursor()
+            cur.execute("select code from fnsi_typeREMD where code=?", (t["typeREMDCode"],))
+            code = cur.fetchone()
+            if code is None:
+                loadFNSIref(conn, '1.2.643.5.1.13.13.11.1520', 'typeREMD')
+            cur.close()
+
+            cur = conn.cursor()
+            cur.execute("select code from fnsi_typeMD where code=?", (t["typeMDCode"],))
+            code = cur.fetchone()
+            if code is None:
+                loadFNSIref(conn, '1.2.643.5.1.13.13.11.1522', 'typeMD')
+            cur.close()
+
         elif url[4] == 'DeleteFile':
             found = True
             cur = conn.cursor()
@@ -390,6 +435,36 @@ def application(environ, start_response):
                 ('Content-Length', str(len(ret)))
             ])
             return [ret]
+
+    if environ['PATH_INFO'] == '/getTeplatesTypesList':
+        print('''<!DOCTYPE html><html><head>
+<meta charset='utf-8'>
+<title>Список ШМД сервиса распространения ШМД</title>
+</head><body><table width='100%' border=1>
+<th>Тип МД</th>
+<th>Тип РЭМД</th>
+''', sep='', end='', file=output)
+
+        conn = sqlite3.connect(prefs.DATA_PATH+"/templates.db")
+        cur = conn.cursor()
+        SQLPacket = '''select distinct fnsi_typeMD.name, fnsi_typeREMD.name from template 
+              inner join fnsi_typeMD on fnsi_typeMD.code=template.typeMDCode
+              left join fnsi_typeREMD on fnsi_typeREMD.code=template.typeREMDCode'''
+        cur.execute(SQLPacket)
+        for r in cur.fetchall():
+            print("<tr><td>", r[0], "</td><td>", r[1] if r[1] is not None else "", "</td></tr>", sep='', file=output)
+
+        cur.close()
+        conn.close()
+
+        print("</table></body></html>", sep='', end='', file=output)
+
+        ret = output.getvalue().encode('UTF-8')
+        start_response('200 OK', [
+            ('Content-Type', 'text/html; charset=utf-8'),
+            ('Content-Length', str(len(ret)))
+        ])
+        return [ret]
 
     else:
         start_response('404 Not Found', [('Content-Type','text/html; charset=utf-8')])

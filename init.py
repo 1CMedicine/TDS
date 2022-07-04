@@ -49,6 +49,16 @@ cur.execute("""create table if not exists session (
     UNIQUE(uuid)
 );""")
 
+cur.execute("""create table if not exists fnsi_typeREMD (
+    code TEXT PRIMARY KEY NOT NULL,
+    name TEXT NOT NULL
+);""")
+
+cur.execute("""create table if not exists fnsi_typeMD (
+    code TEXT PRIMARY KEY NOT NULL,
+    name TEXT NOT NULL
+);""")
+
 conn.commit()
 
 uid = pwd.getpwnam(prefs.APACHE_USER).pw_uid
