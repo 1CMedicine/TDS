@@ -19,6 +19,11 @@ if local_path not in sys.path:
 
 import prefs
 
+CONFIG_NAMES = []
+for name in prefs.CONFIGS:
+    CONFIG_NAMES.append(name)
+
+
 def read(environ):
     length = int(environ.get('CONTENT_LENGTH', 0))
     stream = environ['wsgi.input']
@@ -40,14 +45,20 @@ def loadFNSIref(conn, oid, table) :
     cursor.execute("delete from fnsi_"+table)
     cursor.close()
 
+    r = requests.get('https://nsi.rosminzdrav.ru:443/port/rest/passport',
+        params = {'userKey': prefs.FNSI_userkey, 'identifier': '1.2.643.5.1.13.13.11.1367'},
+        headers = {'Accept': 'application/json'}
+    )
+    passport = r.json()
+
     c = int((passport["rowsCount"]-1)/200)+1
     for page in range(1, c+1) :
         r = requests.get('https://nsi.rosminzdrav.ru:443/port/rest/data',
-            params = {'userKey': FNSI_userkey, 'identifier': oid, 'page': page, 'size':200},
+            params = {'userKey': prefs.FNSI_userkey, 'identifier': oid, 'page': page, 'size':200},
             headers = {'Accept': 'application/json'}
         )
         data = r.json()
-            
+
         for psObject in data["list"] :
             code = None
             name = None
@@ -67,6 +78,24 @@ def loadFNSIref(conn, oid, table) :
 def application(environ, start_response):
     # /CVS/Hello/{ТикетИТС}
     url = environ['PATH_INFO'].split('/')
+
+    if environ['PATH_INFO'] == '/tables.js':
+        output = StringIO()
+        print('''function selectConfig(configName) {
+    if (configName != 'sn')
+        document.location.href="''', prefs.SITE_URL, '''/getFullTeplatesList/"+configName.substring(1)
+    else
+        document.location.href="''', prefs.SITE_URL, '''/getFullTeplatesList"
+}''', sep='', file=output)
+
+        ret = output.getvalue().encode('UTF-8')
+        start_response('200 OK', [
+            ('Content-Type', 'text/html; charset=utf-8'),
+            ('Content-Length', str(len(ret)))
+        ])
+        return [ret]
+
+
     if len(url) == 4 and url[1] == 'CVS' and url[2] == 'Hello':
         output = StringIO()
 
@@ -350,7 +379,7 @@ def application(environ, start_response):
 
             needUpload = False
             if t['configName'] in prefs.CONFIGS:
-                for ver in prefs.CONFIGS[t['configName']][0]:
+                for ver in prefs.CONFIGS[t['configName']]:
                     if ver == t['configVersion'][:len(ver)]:
                         needUpload = True
                         break
@@ -436,23 +465,39 @@ def application(environ, start_response):
             ])
             return [ret]
 
-    if environ['PATH_INFO'] == '/getTeplatesTypesList':
+    if environ['PATH_INFO'] == '/getTeplatesList':
+        cv = prefs.CONFIGS['МедицинаБольница'][-1] # последний элемент списка. Считаем, что это актуальная версия.
+        output = StringIO()
         print('''<!DOCTYPE html><html><head>
 <meta charset='utf-8'>
 <title>Список ШМД сервиса распространения ШМД</title>
-</head><body><table width='100%' border=1>
-<th>Тип МД</th>
-<th>Тип РЭМД</th>
+</head><body>
+<p>Актуальная версия 1С:Медицина. Больница - ''', cv, '''</p>
+<table width='100%' border=1>
+<th>Тип МД (код)</th>
+<th>Тип РЭМД (код)</th>
+<th>ШМД</th>
 ''', sep='', end='', file=output)
 
         conn = sqlite3.connect(prefs.DATA_PATH+"/templates.db")
         cur = conn.cursor()
-        SQLPacket = '''select distinct fnsi_typeMD.name, fnsi_typeREMD.name from template 
+        SQLPacket = '''select fnsi_typeMD.code, fnsi_typeMD.name, template.typeREMDCode, fnsi_typeREMD.name, template.fileName
+              from template 
               inner join fnsi_typeMD on fnsi_typeMD.code=template.typeMDCode
-              left join fnsi_typeREMD on fnsi_typeREMD.code=template.typeREMDCode'''
+              left join fnsi_typeREMD on fnsi_typeREMD.code=template.typeREMDCode 
+              where configName='МедицинаБольница' and configVersion like ''' + "'" + cv + "%'" + '''
+              order by fnsi_typeMD.name, fnsi_typeREMD.name'''
         cur.execute(SQLPacket)
         for r in cur.fetchall():
-            print("<tr><td>", r[0], "</td><td>", r[1] if r[1] is not None else "", "</td></tr>", sep='', file=output)
+            print("<tr><td>", 
+                r[1] if r[1] is not None else "", 
+                " ("+r[0]+")" if r[0] is not None else "", 
+                "</td><td>", 
+                r[3] if r[3] is not None else "", 
+                " ("+r[2]+")" if r[2] is not None and r[2] != "" else "", 
+                "</td><td>", 
+                str(r[4]).replace("_", " ").replace(".epf", "").replace(".html", ""),
+                "</td></tr>", sep='', file=output)
 
         cur.close()
         conn.close()
@@ -465,6 +510,76 @@ def application(environ, start_response):
             ('Content-Length', str(len(ret)))
         ])
         return [ret]
+
+    if len(url) in [2,3] and url[1] == 'getFullTeplatesList' and (len(url) == 2 or url[2].isdigit()):
+        output = StringIO()
+        print('''<!DOCTYPE html><html><head>
+<meta charset='utf-8'>
+<script src="''', prefs.SITE_URL, '''/tables.js"></script>
+<title>Полный список ШМД сервиса распространения ШМД</title>
+</head><body><table width='100%' border=1>
+<th>Конфигурация</th> 
+<th>Версия</th>
+<th>id</th>
+<th>ШМД</th>
+<th>Тип МД</th>
+<th>Тип МД CodeSystem</th> 
+<th>UUID</th>
+<th>Тип РЭМД</th>
+<th>Тип РЭМД CodeSystem</th>
+<th>Создавать новую версию</th>
+<th>ИТС логин</th>
+<th>Дата загрузки</th>
+''', sep='', end='', file=output)
+
+        print("<br><p>Фильтр на конфигурацию: <select name='configName' size='1' onchange='selectConfig(this.value)'>", sep='', file=output)
+        if len(url) == 2:
+            print("<option value='sn' selected/>", sep='', file=output)
+        else:
+            print("<option value='sn'/>", sep='', file=output)
+        for i in range(len(CONFIG_NAMES)):
+            if len(url) == 3 and i == int(url[2]):
+                print("<option value='s", i, "' selected>", CONFIG_NAMES[i], "</option>", sep='', file=output)
+            else:
+                print("<option value='s", i, "'>", CONFIG_NAMES[i], "</option>", sep='', file=output)
+        print("</select></p>", sep='', file=output)
+
+        cv = prefs.CONFIGS['МедицинаБольница'][-1] # последний элемент списка. Считаем, что это актуальная версия.
+        conn = sqlite3.connect(prefs.DATA_PATH+"/templates.db")
+        cur = conn.cursor()
+        if len(url) == 2:
+            cur.execute("select * from template order by configName, configVersion desc, id")
+        else:
+            cur.execute("select * from template where configName=? order by configName, configVersion desc, id", (CONFIG_NAMES[int(url[2])], ))
+
+        for r in cur.fetchall():
+            print("<tr><td>", 
+                r[0], "</td><td>", 
+                r[1], "</td><td>", 
+                r[2], "</td><td>", 
+                r[3], "</td><td>", 
+                r[5], "</td><td>", 
+                r[6], "</td><td>", 
+                r[7], "</td><td>", 
+                r[9], "</td><td>", 
+                r[10], "</td><td>", 
+                r[11], "</td><td>", 
+                r[12], "</td><td>", 
+                r[13][:10], " ", r[13][11:16], 
+                "</td></tr>", sep='', file=output)
+
+        cur.close()
+        conn.close()
+
+        print("</table></body></html>", sep='', end='', file=output)
+
+        ret = output.getvalue().encode('UTF-8')
+        start_response('200 OK', [
+            ('Content-Type', 'text/html; charset=utf-8'),
+            ('Content-Length', str(len(ret)))
+        ])
+        return [ret]
+
 
     else:
         start_response('404 Not Found', [('Content-Type','text/html; charset=utf-8')])
