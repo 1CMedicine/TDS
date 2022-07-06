@@ -474,29 +474,23 @@ def application(environ, start_response):
 </head><body>
 <p>Актуальная версия 1С:Медицина. Больница - ''', cv, '''</p>
 <table width='100%' border=1>
-<th>Тип МД (код)</th>
-<th>Тип РЭМД (код)</th>
 <th>ШМД</th>
+<th>Тип РЭМД</th>
 ''', sep='', end='', file=output)
 
         conn = sqlite3.connect(prefs.DATA_PATH+"/templates.db")
         cur = conn.cursor()
-        SQLPacket = '''select fnsi_typeMD.code, fnsi_typeMD.name, template.typeREMDCode, fnsi_typeREMD.name, template.fileName
+        SQLPacket = '''select fnsi_typeREMD.name, template.fileName
               from template 
-              inner join fnsi_typeMD on fnsi_typeMD.code=template.typeMDCode
-              left join fnsi_typeREMD on fnsi_typeREMD.code=template.typeREMDCode 
+              inner join fnsi_typeREMD on fnsi_typeREMD.code=template.typeREMDCode 
               where configName='МедицинаБольница' and configVersion like ''' + "'" + cv + "%'" + '''
-              order by fnsi_typeMD.name, fnsi_typeREMD.name'''
+              order by filename'''
         cur.execute(SQLPacket)
         for r in cur.fetchall():
             print("<tr><td>", 
-                r[1] if r[1] is not None else "", 
-                " ("+r[0]+")" if r[0] is not None else "", 
+                str(r[1]).replace("_", " ").replace(".epf", "").replace(".html", "").replace(".htm", ""),
                 "</td><td>", 
-                r[3] if r[3] is not None else "", 
-                " ("+r[2]+")" if r[2] is not None and r[2] != "" else "", 
-                "</td><td>", 
-                str(r[4]).replace("_", " ").replace(".epf", "").replace(".html", ""),
+                r[0], 
                 "</td></tr>", sep='', file=output)
 
         cur.close()
