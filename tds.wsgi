@@ -79,6 +79,35 @@ def application(environ, start_response):
     # /CVS/Hello/{ТикетИТС}
     url = environ['PATH_INFO'].split('/')
 
+    if environ['PATH_INFO'] == '/style.css':
+        style=b'''
+table {
+    display: table;
+    border-collapse: separate;
+    box-sizing: border-box;
+    white-space: normal;
+    line-height: normal;
+    font-weight: normal;
+    font-size: small;
+    font-style: normal;
+    color: -internal-quirk-inherit;
+    text-align: start;
+    border: 1px outset;
+    border-spacing: 0px;
+    border-color: grey;
+    font-variant: normal;
+    font-family: Verdana, Tahoma, Arial, sans-serif;
+}
+p  {
+    font-family: Verdana, Tahoma, Arial, sans-serif;
+    contain: content;
+}'''
+        start_response('200 OK', [
+            ('Content-Type', 'text/css; charset=utf-8'),
+            ('Content-Length', str(len(style)))
+        ])
+        return [style]
+
     if environ['PATH_INFO'] == '/tables.js':
         output = StringIO()
         print('''function selectConfig(configName) {
@@ -470,6 +499,7 @@ def application(environ, start_response):
         output = StringIO()
         print('''<!DOCTYPE html><html><head>
 <meta charset='utf-8'>
+<link rel='stylesheet' href="''', prefs.SITE_URL, '''/style.css">
 <title>Список ШМД сервиса распространения ШМД</title>
 </head><body>
 <p>Актуальная версия 1С:Медицина. Больница - ''', cv, '''</p>
@@ -509,6 +539,7 @@ def application(environ, start_response):
         output = StringIO()
         print('''<!DOCTYPE html><html><head>
 <meta charset='utf-8'>
+<link rel='stylesheet' href="''', prefs.SITE_URL, '''/style.css">
 <script src="''', prefs.SITE_URL, '''/tables.js"></script>
 <title>Полный список ШМД сервиса распространения ШМД</title>
 </head><body><table width='100%' border=1>
