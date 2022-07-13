@@ -51,8 +51,11 @@
 2) Скопировать файлы tds.wsgi, prefs.py, init.py в папку /var/www/wsgi/tds.
 3) Внести настройки экземпляра сервиса в prefs.py
 4) Запустить init.py
-5) Зарегистрировать приложение WSGI
+5) Зарегистрировать приложение WSGI в конфигурации apache2
 ```
-	WSGIScriptAlias /wsgi/pult /var/www/wsgi/tds/tds.wsgi
+	WSGIScriptAlias /wsgi/tds /var/www/wsgi/tds/tds.wsgi
 ```
-
+6) В файле ``/etc/apache2/envvars`` установить локаль в UTF-8
+```
+	LANG="ru_RU.UTF-8"
+```
