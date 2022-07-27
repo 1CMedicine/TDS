@@ -189,9 +189,10 @@ p  {
             params_json = json.loads(params)
             configName = params_json['#value'][0]['Value']['#value']
             configVersion = params_json['#value'][1]['Value']['#value']
+            cv = configVersion[:configVersion.rfind('.')]
 
             cur = conn.cursor()
-            cur.execute("select * from template where configName=? and configVersion=?", (configName, configVersion))
+            cur.execute("select * from template where configName=? and configVersion=?", (configName, cv))
 
             print('{"#value": [', sep='', file=output)
             start = True
@@ -406,30 +407,29 @@ p  {
                 elif  p["name"]["#value"] == "ДДанные":
                     t["ДДанные"] = p["Value"]["#value"]
 
-            needUpload = False
-            if t['configName'] in prefs.CONFIGS:
-                for ver in prefs.CONFIGS[t['configName']]:
-                    if ver == t['configVersion'][:len(ver)]:
-                        needUpload = True
-                        break
-
-            if not needUpload:
-                conn.close()
-                start_response('403 FORBIDDEN', [('Content-Type', 'text/plain; charset=utf-8')])
-                return ['Не поддерживаемая конфигурация или версия конфигурации'.encode('UTF-8')]
-
+            cv = t["configVersion"][:t["configVersion"].rfind('.')]
             cur = conn.cursor()
-            cur.execute("delete from template where configName=? and configVersion=? and id=?", (t["configName"], t["configVersion"], t["id"]))
+            cur.execute("delete from template where configName=? and configVersion=? and id=?", (t["configName"], cv, t["id"]))
             cur.close()
 
+            # ограничиваем длину имени файла 218 символами (255 - ограничение NTFS и 37 символов для технического префикса)
+            fn = t["fileName"]
+            if len(fn) > 218:
+                ext = fn.rfind('.')
+                if ext != -1:
+                    ext_size = len(fn)-ext
+                    n = fn[:ext]
+                    fn = n[:218-ext_size]+fn[ext:]
+                else:
+                    fn = fn[:218]
             cur = conn.cursor()
-            i = (t["configName"], t["configVersion"], t["id"], t["fileName"], t["checkSum"], t["typeMDCode"], t["typeMDCodeSystem"], t["UUIDTemplate"], json.dumps(t["TemplateDesc"]), t["typeREMDCode"], t["typeREMDCodeSystem"], t["createNewVersion"], itsLogin[0], datetime.datetime.now().isoformat())
+            i = (t["configName"], cv, t["id"], fn, t["checkSum"], t["typeMDCode"], t["typeMDCodeSystem"], t["UUIDTemplate"], json.dumps(t["TemplateDesc"]), t["typeREMDCode"], t["typeREMDCodeSystem"], t["createNewVersion"], itsLogin[0], datetime.datetime.now().isoformat())
             SQLPacket = "insert into template values (?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
             cur.execute(SQLPacket, i)
             cur.close()
             conn.commit()
 
-            file = open(prefs.DATA_PATH+'/'+t["UUIDTemplate"]+"_"+t["fileName"], "wb")
+            file = open(prefs.DATA_PATH+'/'+t["UUIDTemplate"]+"_"+fn, "wb")
             file.write(base64.b64decode(t["ДДанные"]))
             file.close()
 
@@ -495,7 +495,7 @@ p  {
             return [ret]
 
     if environ['PATH_INFO'] == '/getTeplatesList':
-        cv = prefs.CONFIGS['МедицинаБольница'][-1] # последний элемент списка. Считаем, что это актуальная версия.
+        cv = prefs.CONFIGS['МедицинаБольница']
         output = StringIO()
         print('''<!DOCTYPE html><html><head>
 <meta charset='utf-8'>
@@ -513,9 +513,9 @@ p  {
         SQLPacket = '''select fnsi_typeREMD.name, template.fileName
               from template 
               inner join fnsi_typeREMD on fnsi_typeREMD.code=template.typeREMDCode 
-              where configName='МедицинаБольница' and configVersion like ''' + "'" + cv + "%'" + '''
+              where configName='МедицинаБольница' and configVersion=?
               order by filename'''
-        cur.execute(SQLPacket)
+        cur.execute(SQLPacket, (cv,))
         for r in cur.fetchall():
             print("<tr><td>", 
                 str(r[1]).replace("_", " ").replace(".epf", "").replace(".html", "").replace(".htm", ""),
@@ -569,7 +569,7 @@ p  {
                 print("<option value='s", i, "'>", CONFIG_NAMES[i], "</option>", sep='', file=output)
         print("</select></p>", sep='', file=output)
 
-        cv = prefs.CONFIGS['МедицинаБольница'][-1] # последний элемент списка. Считаем, что это актуальная версия.
+        cv = prefs.CONFIGS['МедицинаБольница']
         conn = sqlite3.connect(prefs.DATA_PATH+"/templates.db")
         cur = conn.cursor()
         if len(url) == 2:
