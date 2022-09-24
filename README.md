@@ -62,3 +62,4 @@
 ```
 	LANG="ru_RU.UTF-8"
 ```
+7) Для доступа к https://nsi.rosminzdrav.ru/ необходимо установить сертификаты russian_trusted_root_ca.cer и russian_trusted_sub_ca.cer по инструкции операционной системы.

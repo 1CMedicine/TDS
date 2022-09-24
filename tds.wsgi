@@ -433,19 +433,21 @@ p  {
             file.write(base64.b64decode(t["ДДанные"]))
             file.close()
 
-            cur = conn.cursor()
-            cur.execute("select code from fnsi_typeREMD where code=?", (t["typeREMDCode"],))
-            code = cur.fetchone()
-            if code is None:
-                loadFNSIref(conn, '1.2.643.5.1.13.13.11.1520', 'typeREMD')
-            cur.close()
+            if t["typeREMDCode"] != "":
+                cur = conn.cursor()
+                cur.execute("select code from fnsi_typeREMD where code=?", (t["typeREMDCode"],))
+                code = cur.fetchone()
+                if code is None:
+                    loadFNSIref(conn, '1.2.643.5.1.13.13.11.1520', 'typeREMD')
+                cur.close()
 
-            cur = conn.cursor()
-            cur.execute("select code from fnsi_typeMD where code=?", (t["typeMDCode"],))
-            code = cur.fetchone()
-            if code is None:
-                loadFNSIref(conn, '1.2.643.5.1.13.13.11.1522', 'typeMD')
-            cur.close()
+            if t["typeMDCode"] != "":
+                cur = conn.cursor()
+                cur.execute("select code from fnsi_typeMD where code=?", (t["typeMDCode"],))
+                code = cur.fetchone()
+                if code is None:
+                    loadFNSIref(conn, '1.2.643.5.1.13.13.11.1522', 'typeMD')
+                cur.close()
 
         elif url[4] == 'DeleteFile':
             found = True
