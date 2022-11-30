@@ -514,7 +514,7 @@ p  {
         cur = conn.cursor()
         SQLPacket = '''select fnsi_typeREMD.name, template.fileName
               from template 
-              inner join fnsi_typeREMD on fnsi_typeREMD.code=template.typeREMDCode 
+              left join fnsi_typeREMD on fnsi_typeREMD.code=template.typeREMDCode 
               where configName='МедицинаБольница' and configVersion=?
               order by filename'''
         cur.execute(SQLPacket, (cv,))
@@ -522,7 +522,7 @@ p  {
             print("<tr><td>", 
                 str(r[1]).replace("_", " ").replace(".epf", "").replace(".html", "").replace(".htm", ""),
                 "</td><td>", 
-                r[0], 
+                r[0] if r[0] is not None else "", 
                 "</td></tr>", sep='', file=output)
 
         cur.close()
