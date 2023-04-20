@@ -372,7 +372,7 @@ p  {
 
             decoder = json.JSONDecoder(object_pairs_hook=OrderedDict)
             file = read(environ)
-            f = open(file.name, "r")
+            f = open(file.name, "r", encoding='utf-8')
             js = f.read()
             params = decoder.decode(js)
             f.close()
