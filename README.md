@@ -58,8 +58,4 @@
 ```
 	WSGIScriptAlias /wsgi/tds /var/www/wsgi/tds/tds.wsgi
 ```
-6) В файле ``/etc/apache2/envvars`` установить локаль в UTF-8
-```
-	LANG="ru_RU.UTF-8"
-```
-7) Для доступа к https://nsi.rosminzdrav.ru/ необходимо установить сертификаты russian_trusted_root_ca.cer и russian_trusted_sub_ca.cer по инструкции операционной системы.
+6) Для доступа к https://nsi.rosminzdrav.ru/ необходимо установить сертификаты russian_trusted_root_ca.cer и russian_trusted_sub_ca.cer по инструкции операционной системы.
