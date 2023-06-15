@@ -37,7 +37,7 @@ def read(environ):
     environ['wsgi.input'] = body
     return body
 
-def loadFNSIref(conn, oid, table) :
+def loadFNSIref(conn, oid, table, environ) :
     if prefs.FNSI_userkey is None or len(prefs.FNSI_userkey) == 0 :
         return
 
@@ -57,7 +57,11 @@ def loadFNSIref(conn, oid, table) :
             params = {'userKey': prefs.FNSI_userkey, 'identifier': oid, 'page': page, 'size':200},
             headers = {'Accept': 'application/json'}
         )
-        data = r.json()
+        try :
+            data = r.json()
+        except Exception as e:
+            print(r, sep=' ', end='', file=environ["wsgi.errors"])
+            raise
 
         for psObject in data["list"] :
             code = None
@@ -438,7 +442,7 @@ p  {
                 cur.execute("select code from fnsi_typeREMD where code=?", (t["typeREMDCode"],))
                 code = cur.fetchone()
                 if code is None:
-                    loadFNSIref(conn, '1.2.643.5.1.13.13.11.1520', 'typeREMD')
+                    loadFNSIref(conn, '1.2.643.5.1.13.13.11.1520', 'typeREMD', environ)
                 cur.close()
 
             if t["typeMDCode"] != "":
@@ -446,7 +450,7 @@ p  {
                 cur.execute("select code from fnsi_typeMD where code=?", (t["typeMDCode"],))
                 code = cur.fetchone()
                 if code is None:
-                    loadFNSIref(conn, '1.2.643.5.1.13.13.11.1522', 'typeMD')
+                    loadFNSIref(conn, '1.2.643.5.1.13.13.11.1522', 'typeMD', environ)
                 cur.close()
 
         elif url[4] == 'DeleteFile':
