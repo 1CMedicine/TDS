@@ -512,6 +512,7 @@ p  {
 <table width='100%' border=1>
 <th>ШМД</th>
 <th>Тип РЭМД</th>
+<th>Тип ШМД</th>
 ''', sep='', end='', file=output)
 
         conn = sqlite3.connect(prefs.DATA_PATH+"/templates.db")
@@ -523,10 +524,25 @@ p  {
               order by filename'''
         cur.execute(SQLPacket, (cv,))
         for r in cur.fetchall():
+            ext = r[1].rfind('.')
+            shmd = 'Неопределено'
+            n = ''
+            if ext != -1:
+                n = r[1][ext:]
+                if n == '.zip':
+                    shmd = 'Форма радактора'
+                elif n == '.epf':
+                    shmd = 'Обработка'
+                elif n in ('.htm', '.html'):
+                    shmd = 'Веб'
+                else:
+                    shmd = n
             print("<tr><td>", 
                 str(r[1]).replace("_", " ").replace(".epf", "").replace(".html", "").replace(".htm", ""),
                 "</td><td>", 
                 r[0] if r[0] is not None else "", 
+                "</td><td align='center'>",
+                shmd, 
                 "</td></tr>", sep='', file=output)
 
         cur.close()
