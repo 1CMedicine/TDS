@@ -500,7 +500,57 @@ p  {
             ])
             return [ret]
 
-    if environ['PATH_INFO'] == '/getTeplatesList':
+    if environ['PATH_INFO'] == '/templatesList.json':
+        cv = prefs.CONFIGS['МедицинаБольница']
+        output = StringIO()
+        print('{"templatesList":[', sep='', end='', file=output)
+
+        conn = sqlite3.connect(prefs.DATA_PATH+"/templates.db")
+        cur = conn.cursor()
+        SQLPacket = '''select fnsi_typeREMD.name, template.fileName
+              from template 
+              left join fnsi_typeREMD on fnsi_typeREMD.code=template.typeREMDCode 
+              where configName='МедицинаБольница' and configVersion=?
+              order by filename'''
+        cur.execute(SQLPacket, (cv,))
+        start = True
+        for r in cur.fetchall():
+            if start:
+                start = False
+            else:
+                print(',', sep='', end='', file=output)
+
+            ext = r[1].rfind('.')
+            shmd = 'Неопределено'
+            n = ''
+            if ext != -1:
+                n = r[1][ext:]
+                if n == '.zip':
+                    shmd = 'Форма радактора'
+                elif n == '.epf':
+                    shmd = 'Обработка'
+                elif n in ('.htm', '.html'):
+                    shmd = 'Веб'
+                else:
+                    shmd = n
+                name = r[1][:ext]
+            else:
+                name = r[1]
+            name = r[1][:ext]
+            print('{"typeREMD":"',r[0] if r[0] is not None else '','","name":"',name.replace('_', ' '),'","type":"',shmd,'"}', sep='', end='', file=output)
+
+        cur.close()
+        conn.close()
+        print(']}', sep='', end='', file=output)
+
+        ret = output.getvalue().encode('UTF-8')
+        start_response('200 OK', [
+            ('Content-Type', 'application/json; charset=utf-8'),
+            ('Content-Length', str(len(ret)))
+        ])
+        return [ret]
+
+    if environ['PATH_INFO'] == '/getTemplatesList':
         cv = prefs.CONFIGS['МедицинаБольница']
         output = StringIO()
         print('''<!DOCTYPE html><html><head>
@@ -537,8 +587,11 @@ p  {
                     shmd = 'Веб'
                 else:
                     shmd = n
+                name = r[1][:ext]
+            else:
+                name = r[1]
             print("<tr><td>", 
-                str(r[1]).replace("_", " ").replace(".epf", "").replace(".html", "").replace(".htm", ""),
+                name.replace("_", " "),
                 "</td><td>", 
                 r[0] if r[0] is not None else "", 
                 "</td><td align='center'>",
