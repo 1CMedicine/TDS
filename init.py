@@ -39,7 +39,7 @@ cur.execute("""create table if not exists template (
     dateUploaded TEXT NOT NULL,
     UNIQUE(configName, configVersion, UUIDTemplate),
     UNIQUE(UUIDTemplate),
-    UNIQUE(fileName)
+    UNIQUE(fileName, configVersion, configName)
 );""")
 
 cur.execute("""create table if not exists session (

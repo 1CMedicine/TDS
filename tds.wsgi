@@ -434,7 +434,7 @@ p  {
             except sqlite3.IntegrityError as e:
                 conn.close()
                 start_response('409 Conflict', [('Content-Type', 'text/plain; charset=utf-8')])
-                return [("Файл уже существует - "+fn).encode('UTF-8')]
+                return [("Файл '"+fn+"' уже существует для "+f["configName"]+" "+f["configVersion"]).encode('UTF-8')]
             cur.close()
             conn.commit()
 
