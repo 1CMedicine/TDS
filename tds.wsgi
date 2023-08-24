@@ -429,7 +429,12 @@ p  {
             cur = conn.cursor()
             i = (t["configName"], cv, t["id"], fn, t["checkSum"], t["typeMDCode"], t["typeMDCodeSystem"], t["UUIDTemplate"], json.dumps(t["TemplateDesc"]), t["typeREMDCode"], t["typeREMDCodeSystem"], t["createNewVersion"], itsLogin[0], datetime.datetime.now().isoformat())
             SQLPacket = "insert into template values (?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
-            cur.execute(SQLPacket, i)
+            try:
+                cur.execute(SQLPacket, i)
+            except sqlite3.IntegrityError as e:
+                conn.close()
+                start_response('409 Conflict', [('Content-Type', 'text/plain; charset=utf-8')])
+                return [("Файл '"+fn+"' или uuid '"+t["UUIDTemplate"]+"' уже существует для "+f["configName"]+" "+f["configVersion"]+". "+repr(e)).encode('UTF-8')]
             cur.close()
             conn.commit()
 
@@ -610,7 +615,7 @@ p  {
         ])
         return [ret]
 
-    if len(url) in [2,3] and url[1] == 'getFullTeplatesList' and (len(url) == 2 or url[2].isdigit()):
+    if len(url) in [2,3] and url[1] == 'getFullTemplatesList' and (len(url) == 2 or url[2].isdigit()):
         output = StringIO()
         print('''<!DOCTYPE html><html><head>
 <meta charset='utf-8'>
