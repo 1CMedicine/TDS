@@ -38,6 +38,7 @@ cur.execute("""create table if not exists template (
     itsLogin TEXT NOT NULL,
     dateUploaded TEXT NOT NULL,
     UNIQUE(UUIDTemplate, configVersion, configName),
+    UNIQUE(UUIDTemplate),
     UNIQUE(fileName, configVersion, configName)
 );""")
 
