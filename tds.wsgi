@@ -26,8 +26,6 @@ for name in prefs.CONFIGS:
 
 def read(environ):
     length = int(environ.get('CONTENT_LENGTH', 0))
-    if length == 0:
-        raise Exception("CONTENT_LENGTH should not be equal 0")
     stream = environ['wsgi.input']
     body = tempfile.NamedTemporaryFile(mode='w+b')
     while length > 0:
@@ -191,8 +189,6 @@ p  {
         if url[4] == 'GetList':
             found = True
             length = int(environ.get('CONTENT_LENGTH', '0'))
-            if length == 0:
-                raise Exception("CONTENT_LENGTH should not be equal 0)
             params = environ['wsgi.input'].read(length).decode('utf-8')
             params_json = json.loads(params)
             configName = params_json['#value'][0]['Value']['#value']
@@ -342,8 +338,6 @@ p  {
         elif url[4] == 'GetFile':
             found = True
             length = int(environ.get('CONTENT_LENGTH', '0'))
-            if length == 0:
-                raise Exception("CONTENT_LENGTH should not be equal 0")
             params = environ['wsgi.input'].read(length).decode('utf-8')
             params_json = json.loads(params)
             UUIDTemplate = params_json['#value'][0]['Value']['#value']
@@ -438,9 +432,11 @@ p  {
             try:
                 cur.execute(SQLPacket, i)
             except sqlite3.IntegrityError as e:
+                cur.close()
                 conn.close()
                 start_response('409 Conflict', [('Content-Type', 'text/plain; charset=utf-8')])
-                return [("Файл '"+fn+"' или uuid '"+t["UUIDTemplate"]+"' уже существует для "+f["configName"]+" "+f["configVersion"]+". "+repr(e)).encode('UTF-8')]
+                return [("Файл '"+fn+"' или uuid '"+t["UUIDTemplate"]+"' уже существует для "+t["configName"]+" "+cv+". "+repr(e)).encode('UTF-8')]
+
             cur.close()
             conn.commit()
 
@@ -483,8 +479,6 @@ p  {
                 return [("У пользователя '"+itsLogin[0]+"' нет прав на удаление файлов").encode('UTF-8')]
 
             length = int(environ.get('CONTENT_LENGTH', '0'))
-            if length == 0:
-                raise Exception("CONTENT_LENGTH should not be equal 0")
             params = environ['wsgi.input'].read(length).decode('utf-8')
             params_json = json.loads(params)
             UUIDTemplate = params_json['#value'][0]['Value']['#value']
