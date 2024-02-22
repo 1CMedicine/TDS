@@ -23,6 +23,9 @@ CONFIG_NAMES = []
 for name in prefs.CONFIGS:
     CONFIG_NAMES.append(name)
 
+CONFIG_VERSIONS = []
+for name in prefs.CONFIGS:
+    CONFIG_VERSIONS = list(set().union(CONFIG_VERSIONS, prefs.CONFIGS[name]))
 
 def read(environ):
     length = int(environ.get('CONTENT_LENGTH', 0))
@@ -116,9 +119,9 @@ p  {
         output = StringIO()
         print('''function selectConfig(configName) {
     if (configName != 'sn')
-        document.location.href="''', prefs.SITE_URL, '''/getFullTeplatesList/"+configName.substring(1)
+        document.location.href="''', prefs.SITE_URL, '''/getFullTemplatesList/"+configName.substring(1)
     else
-        document.location.href="''', prefs.SITE_URL, '''/getFullTeplatesList"
+        document.location.href="''', prefs.SITE_URL, '''/getFullTemplatesList"
 }''', sep='', file=output)
 
         ret = output.getvalue().encode('UTF-8')
@@ -558,14 +561,15 @@ p  {
         return [ret]
 
     if environ['PATH_INFO'] == '/getTemplatesList':
-        cv = prefs.CONFIGS['МедицинаБольница']
+        conf = next(iter(prefs.CONFIGS)) 		# получаем первый элемент словаря
+        cv = prefs.CONFIGS[conf][-1]
         output = StringIO()
         print('''<!DOCTYPE html><html><head>
 <meta charset='utf-8'>
 <link rel='stylesheet' href="''', prefs.SITE_URL, '''/style.css">
 <title>Список ШМД сервиса распространения ШМД</title>
 </head><body>
-<p>Актуальная версия 1С:Медицина. Больница - ''', cv, '''</p>
+<p>Актуальная версия ''', conf,''' - ''', cv, '''</p>
 <table width='100%' border=1>
 <th>ШМД</th>
 <th>Тип РЭМД</th>
@@ -650,14 +654,17 @@ p  {
             else:
                 print("<option value='s", i, "'>", CONFIG_NAMES[i], "</option>", sep='', file=output)
         print("</select></p>", sep='', file=output)
+        print("<p>Фильтр на версии - ", ", ".join(CONFIG_VERSIONS)+". Базе данных версий может быть больше</p>", sep='', file=output)
 
-        cv = prefs.CONFIGS['МедицинаБольница']
         conn = sqlite3.connect(prefs.DATA_PATH+"/templates.db")
         cur = conn.cursor()
+        placeholders = ",".join("?" * len(CONFIG_VERSIONS))
         if len(url) == 2:
-            cur.execute("select * from template order by configName, configVersion desc, id")
+            cur.execute("select * from template where configVersion in (%s) order by configName, configVersion desc, id" % placeholders, CONFIG_VERSIONS)
         else:
-            cur.execute("select * from template where configName=? order by configName, configVersion desc, id", (CONFIG_NAMES[int(url[2])], ))
+            t = CONFIG_VERSIONS.copy()
+            t.append(CONFIG_NAMES[int(url[2])])
+            cur.execute("select * from template where configVersion in (%s) and configName=? order by configName, configVersion desc, id" % placeholders, t)
 
         for r in cur.fetchall():
             print("<tr><td>", 
