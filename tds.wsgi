@@ -27,6 +27,12 @@ CONFIG_VERSIONS = []
 for name in prefs.CONFIGS:
     CONFIG_VERSIONS = list(set().union(CONFIG_VERSIONS, prefs.CONFIGS[name]))
 
+CONFIG_VERSIONS_IDX = {}
+for name in CONFIG_NAMES:
+    vers = prefs.CONFIGS[name]
+    for i in range(0, len(vers)):
+        CONFIG_VERSIONS_IDX[name+"_"+vers[i]] = i
+
 def read(environ):
     length = int(environ.get('CONTENT_LENGTH', 0))
     stream = environ['wsgi.input']
@@ -108,7 +114,14 @@ table {
 p  {
     font-family: Verdana, Tahoma, Arial, sans-serif;
     contain: content;
-}'''
+}
+.deleted {
+    background-color: rgb(255,150,150) !important;
+}
+.added {
+    background-color: rgb(150,255,150) !important;
+}
+'''
         start_response('200 OK', [
             ('Content-Type', 'text/css; charset=utf-8'),
             ('Content-Length', str(len(style)))
@@ -628,20 +641,9 @@ p  {
 <link rel='stylesheet' href="''', prefs.SITE_URL, '''/style.css">
 <script src="''', prefs.SITE_URL, '''/tables.js"></script>
 <title>Полный список ШМД сервиса распространения ШМД</title>
-</head><body><table width='100%' border=1>
-<th>Конфигурация</th> 
-<th>Версия</th>
-<th>id</th>
-<th>ШМД</th>
-<th>Тип МД</th>
-<th>Тип МД CodeSystem</th> 
-<th>UUID</th>
-<th>Тип РЭМД</th>
-<th>Тип РЭМД CodeSystem</th>
-<th>Создавать новую версию</th>
-<th>ИТС логин</th>
-<th>Дата загрузки</th>
-''', sep='', end='', file=output)
+</head><body>''', sep='', end='', file=output)
+        print("<p><small><span class='added'>Зеленый фон</span> - ШМД был добавлен в текущей версии (в предыдущей не было)</small><br>", sep='', file=output)
+        print("<small><span class='deleted'>Красный фон</span> - ШМД был удален в следующей версии (в следующей нет)</small></p>", sep='', file=output)
 
         print("<br><p>Фильтр на конфигурацию: <select name='configName' size='1' onchange='selectConfig(this.value)'>", sep='', file=output)
         if len(url) == 2:
@@ -656,6 +658,19 @@ p  {
         print("</select></p>", sep='', file=output)
         print("<p>Фильтр на версии - ", ", ".join(CONFIG_VERSIONS)+". Базе данных версий может быть больше</p>", sep='', file=output)
 
+        print('''<table width='100%' border=1>
+<th>Конфигурация</th> 
+<th>Версия</th>
+<th>id</th>
+<th>Имя файла</th>
+<th>Тип МД</th>
+<th>UUID</th>
+<th>Тип РЭМД</th>
+<th>Создавать новую версию</th>
+<th>ИТС логин</th>
+<th>Дата загрузки</th>
+''', sep='', end='', file=output)
+
         conn = sqlite3.connect(prefs.DATA_PATH+"/templates.db")
         cur = conn.cursor()
         placeholders = ",".join("?" * len(CONFIG_VERSIONS))
@@ -666,24 +681,47 @@ p  {
             t.append(CONFIG_NAMES[int(url[2])])
             cur.execute("select * from template where configVersion in (%s) and configName=? order by configName, configVersion desc, id" % placeholders, t)
 
+        arr = []
         for r in cur.fetchall():
-            print("<tr><td>", 
+            arr.append(r)
+
+        cur.close()
+        conn.close()
+
+        for r in arr:
+            ver_i = CONFIG_VERSIONS_IDX[r[0]+"_"+r[1]]
+            added = False
+            if ver_i != 0:
+                for r2 in arr:
+                    ver_i2 = CONFIG_VERSIONS_IDX[r2[0]+"_"+r2[1]]
+                    if r2[0] == r[0] and r2[3] == r[3] and ver_i == ver_i2+1:
+                        added = True
+                        break
+            else:
+                added = True
+
+            deleted = False
+            if ver_i != len(prefs.CONFIGS[r[0]])-1:
+                for r2 in arr:
+                    ver_i2 = CONFIG_VERSIONS_IDX[r2[0]+"_"+r2[1]]
+                    if r2[0] == r[0] and r2[3] == r[3] and ver_i == ver_i2-1:
+                        deleted = True
+                        break
+            elif added:
+                deleted = True
+
+            print("<tr ", "" if added else "class='added'", "" if deleted else "class='deleted'","><td>", 
                 r[0], "</td><td>", 
                 r[1], "</td><td>", 
                 r[2], "</td><td>", 
                 r[3], "</td><td>", 
-                r[5], "</td><td>", 
-                r[6], "</td><td>", 
+                "<a href='https://nsi.rosminzdrav.ru/dictionaries/",r[6],"'>",r[5], "</a></td><td>", 
                 r[7], "</td><td>", 
-                r[9], "</td><td>", 
-                r[10], "</td><td>", 
+                "<a href='https://nsi.rosminzdrav.ru/dictionaries/",r[10], "'>",r[9], "</a></td><td>", 
                 r[11], "</td><td>", 
                 r[12], "</td><td>", 
                 r[13][:10], " ", r[13][11:16], 
                 "</td></tr>", sep='', file=output)
-
-        cur.close()
-        conn.close()
 
         print("</table></body></html>", sep='', end='', file=output)
 
