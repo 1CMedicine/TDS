@@ -524,7 +524,8 @@ p  {
             return [ret]
 
     if environ['PATH_INFO'] == '/templatesList.json':
-        cv = prefs.CONFIGS['МедицинаБольница']
+        conf = next(iter(prefs.CONFIGS)) 		# получаем первый элемент словаря
+        cv = prefs.CONFIGS[conf][-1]
         output = StringIO()
         print('{"templatesList":[', sep='', end='', file=output)
 
