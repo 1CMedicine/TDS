@@ -87,6 +87,11 @@ def loadFNSIref(conn, oid, table, environ) :
 
     conn.commit()
 
+def escapeHTML(line) :
+    return line.strip().replace(">", "&#62;").replace("<", "&#60;").replace("\"", "&#34;").replace('\n', "<br>").replace('\t', "&#9;").replace("'", "&apos;").replace('\\', "&#92;")
+
+def escapeJSON(line) :
+    return line.strip().replace("\"", "\\\"").replace('\n', "\\n").replace('\t', "\\t").replace('\\', "\\")
 
 def application(environ, start_response):
     # /CVS/Hello/{ТикетИТС}
@@ -212,7 +217,7 @@ p  {
             cv = configVersion[:configVersion.rfind('.')]
 
             cur = conn.cursor()
-            cur.execute("select * from template where configName=? and configVersion=?", (configName, cv))
+            cur.execute("select * from template where configName=? and configVersion=? order by fileName", (configName, cv))
 
             print('{"#value": [', sep='', file=output)
             start = True
@@ -343,6 +348,16 @@ p  {
 "#type": "jxs:boolean",
 "#value": ''',r[11], '''
 }
+},
+{
+"name": {
+"#type": "jxs:string",
+"#value": "Комментарий"
+},
+"Value": {
+"#type": "jxs:string",
+"#value": "''',escapeJSON(r[14]) if r[14] is not None else "", '''"
+}
 }
 ]
 }''', sep='', end='', file=output)
@@ -404,27 +419,29 @@ p  {
             for p in params:
                 if p["name"]["#value"] == "Идентификатор":
                     t["id"] = p["Value"]["#value"]
-                elif  p["name"]["#value"] == "Конфигурация":
+                elif p["name"]["#value"] == "Конфигурация":
                     t["configName"] = p["Value"]["#value"]
-                elif  p["name"]["#value"] == "Версия":
+                elif p["name"]["#value"] == "Версия":
                     t["configVersion"] = p["Value"]["#value"]
-                elif  p["name"]["#value"] == "КонтрольнаяСумма":
+                elif p["name"]["#value"] == "КонтрольнаяСумма":
                     t["checkSum"] = p["Value"]["#value"]
-                elif  p["name"]["#value"] == "ТипМДCodeSystem":
+                elif p["name"]["#value"] == "ТипМДCodeSystem":
                     t["typeMDCodeSystem"] = p["Value"]["#value"]
-                elif  p["name"]["#value"] == "ТипМДCode":
+                elif p["name"]["#value"] == "ТипМДCode":
                     t["typeMDCode"] = p["Value"]["#value"]
-                elif  p["name"]["#value"] == "ТипРЭМДCodeSystem":
+                elif p["name"]["#value"] == "ТипРЭМДCodeSystem":
                     t["typeREMDCodeSystem"] = p["Value"]["#value"]
-                elif  p["name"]["#value"] == "ТипРЭМДCode":
+                elif p["name"]["#value"] == "ТипРЭМДCode":
                     t["typeREMDCode"] = p["Value"]["#value"]
-                elif  p["name"]["#value"] == "ОписаниеШМД":
+                elif p["name"]["#value"] == "ОписаниеШМД":
                     t["TemplateDesc"] = p["Value"]["#value"]
-                elif  p["name"]["#value"] == "ИмяФайлаСРаширением":
+                elif p["name"]["#value"] == "ИмяФайлаСРаширением":
                     t["fileName"] = p["Value"]["#value"]
                 elif  p["name"]["#value"] == "СоздаватьНовуюВерсию":
                     t["createNewVersion"] = p["Value"]["#value"]
-                elif  p["name"]["#value"] == "ДДанные":
+                elif p["name"]["#value"] == "Комментарий":
+                    t["description"] = p["Value"]["#value"]
+                elif p["name"]["#value"] == "ДДанные":
                     t["ДДанные"] = p["Value"]["#value"]
 
             cv = t["configVersion"][:t["configVersion"].rfind('.')]
@@ -443,8 +460,8 @@ p  {
                 else:
                     fn = fn[:218]
             cur = conn.cursor()
-            i = (t["configName"], cv, t["id"], fn, t["checkSum"], t["typeMDCode"], t["typeMDCodeSystem"], t["UUIDTemplate"], json.dumps(t["TemplateDesc"]), t["typeREMDCode"], t["typeREMDCodeSystem"], t["createNewVersion"], itsLogin[0], datetime.datetime.now().isoformat())
-            SQLPacket = "insert into template values (?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
+            i = (t["configName"], cv, t["id"], fn, t["checkSum"], t["typeMDCode"], t["typeMDCodeSystem"], t["UUIDTemplate"], json.dumps(t["TemplateDesc"]), t["typeREMDCode"], t["typeREMDCodeSystem"], t["createNewVersion"], itsLogin[0], datetime.datetime.now().isoformat(), t["description"] if "description" in t else None)
+            SQLPacket = "insert into template values (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
             try:
                 cur.execute(SQLPacket, i)
             except sqlite3.IntegrityError as e:
@@ -535,7 +552,7 @@ p  {
               from template 
               left join fnsi_typeREMD on fnsi_typeREMD.code=template.typeREMDCode 
               where configName='МедицинаБольница' and configVersion=?
-              order by filename'''
+              order by fileName'''
         cur.execute(SQLPacket, (cv,))
         start = True
         for r in cur.fetchall():
@@ -561,7 +578,9 @@ p  {
             else:
                 name = r[1]
             name = r[1][:ext]
-            print('{"typeREMD":"',r[0] if r[0] is not None else '','","name":"',name.replace('_', ' '),'","type":"',shmd,'"}', sep='', end='', file=output)
+            print('{"typeREMD":"',r[0] if r[0] is not None else '',
+                '","name":"',name.replace('_', ' '),
+                '","type":"',shmd, '"}', sep='', end='', file=output)
 
         cur.close()
         conn.close()
@@ -585,7 +604,7 @@ p  {
 </head><body>
 <p>Актуальная версия ''', conf,''' - ''', cv, '''</p>
 <table width='100%' border=1>
-<th>ШМД</th>
+<th>ШМД &darr;</th>
 <th>Тип РЭМД</th>
 <th>Тип ШМД</th>
 ''', sep='', end='', file=output)
@@ -596,7 +615,7 @@ p  {
               from template 
               left join fnsi_typeREMD on fnsi_typeREMD.code=template.typeREMDCode 
               where configName='МедицинаБольница' and configVersion=?
-              order by filename'''
+              order by fileName'''
         cur.execute(SQLPacket, (cv,))
         for r in cur.fetchall():
             ext = r[1].rfind('.')
@@ -620,8 +639,7 @@ p  {
                 "</td><td>", 
                 r[0] if r[0] is not None else "", 
                 "</td><td align='center'>",
-                shmd, 
-                "</td></tr>", sep='', file=output)
+                shmd, "</td><td>", sep='', file=output)
 
         cur.close()
         conn.close()
@@ -659,28 +677,15 @@ p  {
         print("</select></p>", sep='', file=output)
         print("<p>Фильтр на версии - ", ", ".join(CONFIG_VERSIONS)+". Базе данных версий может быть больше</p>", sep='', file=output)
 
-        print('''<table width='100%' border=1>
-<th>Конфигурация</th> 
-<th>Версия</th>
-<th>id</th>
-<th>Имя файла</th>
-<th>Тип МД</th>
-<th>UUID</th>
-<th>Тип РЭМД</th>
-<th>Создавать новую версию</th>
-<th>ИТС логин</th>
-<th>Дата загрузки</th>
-''', sep='', end='', file=output)
-
         conn = sqlite3.connect(prefs.DATA_PATH+"/templates.db")
         cur = conn.cursor()
         placeholders = ",".join("?" * len(CONFIG_VERSIONS))
         if len(url) == 2:
-            cur.execute("select * from template where configVersion in (%s) order by configName, configVersion desc, id" % placeholders, CONFIG_VERSIONS)
+            cur.execute("select * from template where configVersion in (%s) order by configName, configVersion desc, dateUploaded desc" % placeholders, CONFIG_VERSIONS)
         else:
             t = CONFIG_VERSIONS.copy()
             t.append(CONFIG_NAMES[int(url[2])])
-            cur.execute("select * from template where configVersion in (%s) and configName=? order by configName, configVersion desc, id" % placeholders, t)
+            cur.execute("select * from template where configVersion in (%s) and configName=? order by configName, configVersion desc, dateUploaded desc" % placeholders, t)
 
         arr = []
         for r in cur.fetchall():
@@ -688,6 +693,17 @@ p  {
 
         cur.close()
         conn.close()
+
+        print('''<table width='100%' border=1>
+<th>Конфигурация</th> 
+<th>id</th>
+<th>Имя файла</th>
+<th>Тип МД</th>
+<th>Тип РЭМД</th>
+<th>Комментарий</th>
+<th>ИТС логин</th>
+<th>Дата &darr;<br>загрузки</th>
+''', sep='', end='', file=output)
 
         for r in arr:
             ver_i = CONFIG_VERSIONS_IDX[r[0]+"_"+r[1]]
@@ -712,17 +728,15 @@ p  {
                 deleted = True
 
             print("<tr ", "" if added else "class='added'", "" if deleted else "class='deleted'","><td>", 
-                r[0], "</td><td>", 
-                r[1], "</td><td>", 
+                r[0],"<br>", r[1], "</td><td>", 
                 r[2], "</td><td>", 
                 r[3], "</td><td>", 
                 "<a href='https://nsi.rosminzdrav.ru/dictionaries/",r[6],"'>",r[5], "</a></td><td>", 
-                r[7], "</td><td>", 
                 "<a href='https://nsi.rosminzdrav.ru/dictionaries/",r[10], "'>",r[9], "</a></td><td>", 
-                r[11], "</td><td>", 
+                escapeHTML(r[14]) if r[14] is not None else "", "</td><td>",
                 r[12], "</td><td>", 
-                r[13][:10], " ", r[13][11:16], 
-                "</td></tr>", sep='', file=output)
+                r[13][:10], " ", r[13][11:16], "</td></tr>",
+                 sep='', file=output)
 
         print("</table></body></html>", sep='', end='', file=output)
 
