@@ -17,7 +17,7 @@ if local_path not in sys.path:
 
 import prefs
 
-conn = sqlite3.connect(prefs.DATA_PATH+'/templates.db')
+conn = sqlite3.connect(os.path.join(prefs.DATA_PATH, 'templates.db'))
 conn.execute("PRAGMA foreign_keys=OFF;")
 cur = conn.cursor()
 
@@ -30,7 +30,7 @@ cur.execute("""create table if not exists template (
     checkSum TEXT NOT NULL,
     typeMDCode TEXT NOT NULL,
     typeMDCodeSystem TEXT NOT NULL,
-    UUIDTemplate TEXT NOT NULL,
+    UUIDTemplate TEXT PRIMARY KEY NOT NULL,
     TemplateDesc TEXT NOT NULL,
     typeREMDCode TEXT NOT NULL,
     typeREMDCodeSystem TEXT NOT NULL,
@@ -39,7 +39,6 @@ cur.execute("""create table if not exists template (
     dateUploaded TEXT NOT NULL,
     description TEXT NULL,
     UNIQUE(configName, configVersion, UUIDTemplate),
-    UNIQUE(UUIDTemplate),
     UNIQUE(fileName, configVersion, configName)
 );""")
 
@@ -61,8 +60,23 @@ cur.execute("""create table if not exists fnsi_typeMD (
     name TEXT NOT NULL
 );""")
 
+cur.execute("""create table if not exists visualizer  (
+    UUIDVisualizer TEXT PRIMARY KEY NOT NULL,
+    id TEXT NULL,
+    typeREMDCode TEXT NULL,
+    typeREMDCodeSystem TEXT NULL,
+    fileName TEXT NOT NULL,
+    checkSum TEXT NOT NULL,
+    itsLogin TEXT NOT NULL,
+    dateUploaded TEXT NOT NULL,
+    description TEXT NULL,
+    UNIQUE(id),
+    UNIQUE(typeREMDCode, typeREMDCodeSystem)
+);""")
+
 conn.commit()
 
 uid = pwd.getpwnam(prefs.APACHE_USER).pw_uid
 gid = grp.getgrnam(prefs.APACHE_GROUP).gr_gid
-os.chown(prefs.DATA_PATH+"/templates.db", uid, gid)
+os.chown(os.path.join(prefs.DATA_PATH, "templates.db"), uid, gid)
+os.chown(prefs.DATA_PATH, uid, gid)
