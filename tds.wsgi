@@ -490,6 +490,22 @@ p  {
             file.write(base64.b64decode(t["ДДанные"]))
             file.close()
 
+            print('''{
+"#type": "jv8:Structure",
+"#value": [
+{
+"name": {
+"#type": "jxs:string",
+"#value": "УИДШМД"
+},
+"Value": {
+"#type": "jv8:UUID",
+"#value": "''',t["UUIDTemplate"], '''"
+}
+},
+]
+}''', sep='', end='', file=output)
+
             if t["typeREMDCode"] != "":
                 cur = conn.cursor()
                 cur.execute("select code from fnsi_typeREMD where code=?", (t["typeREMDCode"],))
@@ -554,7 +570,7 @@ p  {
             params_json = json.loads(in_str)
 
             cur = conn.cursor()
-            cur.execute("select * from visulaizer order by fileName")
+            cur.execute("select * from visualizer order by fileName")
 
             print('{"#value": [', sep='', file=output)
             start = True
@@ -724,10 +740,6 @@ p  {
                 elif p["name"]["#value"] == "ДДанные":
                     t["ДДанные"] = p["Value"]["#value"]
 
-            length = int(environ.get('CONTENT_LENGTH', '0'))
-            params = environ['wsgi.input'].read(length).decode('utf-8')
-            params_json = json.loads(params)
-
             cur = conn.cursor()
             if t["id"] != "":
                 t["code"] = ""
@@ -750,7 +762,7 @@ p  {
                 cur.close()
 
             # ограничиваем длину имени файла 218 символами (255 - ограничение NTFS и 37 символов для технического префикса)
-            fn = v_fileName
+            fn = t["fileName"]
             if len(fn) > 218:
                 ext = fn.rfind('.')
                 if ext != -1:
@@ -776,6 +788,22 @@ p  {
             file = open(prefs.DATA_PATH+'/'+t["UUIDVisualizer"]+"_"+fn, "wb")
             file.write(base64.b64decode(t["ДДанные"]))
             file.close()
+
+            print('''{
+"#type": "jv8:Structure",
+"#value": [
+{
+"name": {
+"#type": "jxs:string",
+"#value": "УИДВизуализатора"
+},
+"Value": {
+"#type": "jxs:string",
+"#value": "''',t["UUIDVisualizer"], '''"
+}
+}
+]
+}''', sep='', end='', file=output)
 
             if t["code"] != "":
                 cur = conn.cursor()
