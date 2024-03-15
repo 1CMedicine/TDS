@@ -589,7 +589,7 @@ p  {
 "#value": "УИДВизуализатора"
 },
 "Value": {
-"#type": "jxs:string",
+"#type": "jv8:UUID",
 "#value": "''',r[0], '''"
 }
 },
