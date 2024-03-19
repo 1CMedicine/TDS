@@ -51,13 +51,17 @@ cur.execute("""create table if not exists session (
 );""")
 
 cur.execute("""create table if not exists fnsi_typeREMD (
-    code TEXT PRIMARY KEY NOT NULL,
-    name TEXT NOT NULL
+    code TEXT NOT NULL,
+    codeSystem TEXT NOT NULL,
+    name TEXT NOT NULL,
+    UNIQUE(code, codeSystem)
 );""")
 
 cur.execute("""create table if not exists fnsi_typeMD (
-    code TEXT PRIMARY KEY NOT NULL,
-    name TEXT NOT NULL
+    code TEXT NOT NULL,
+    codeSystem TEXT NOT NULL,
+    name TEXT NOT NULL,
+    UNIQUE(code, codeSystem)
 );""")
 
 cur.execute("""create table if not exists visualizer  (

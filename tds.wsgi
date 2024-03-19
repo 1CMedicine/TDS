@@ -56,7 +56,7 @@ def loadFNSIref(conn, oid, table, environ) :
     cursor.close()
 
     r = requests.get('https://nsi.rosminzdrav.ru:443/port/rest/passport',
-        params = {'userKey': prefs.FNSI_userkey, 'identifier': '1.2.643.5.1.13.13.11.1367'},
+        params = {'userKey': prefs.FNSI_userkey, 'identifier': oid},
         headers = {'Accept': 'application/json'}
     )
     passport = r.json()
@@ -83,7 +83,7 @@ def loadFNSIref(conn, oid, table, environ) :
                     code = obj["value"]
 
             cursor = conn.cursor()
-            cursor.execute("insert into fnsi_"+table+" values (?, ?)", (code, name))
+            cursor.execute("insert into fnsi_"+table+" values (?,?,?)", (code, oid, name))
             cursor.close()
 
     conn.commit()
@@ -170,7 +170,7 @@ p  {
         # создаем сессию
         t = round(time.time())  + 959    # время жизни сессии - 16 мин
         sid = str(uuid.uuid4())
-        conn = sqlite3.connect(prefs.DATA_PATH+"/templates.db")
+        conn = sqlite3.connect(os.path.join(prefs.DATA_PATH, "templates.db"))
         cur = conn.cursor()
         cur.execute("insert into session values (?,?,?,?)", (sid, str(t), url[3], login))
         cur.close()
@@ -188,7 +188,7 @@ p  {
     if len(url) == 5 and url[1] == 'CVS' and url[2] == 'MDT':
 
         # проверяем сессию
-        conn = sqlite3.connect(prefs.DATA_PATH+"/templates.db")
+        conn = sqlite3.connect(os.path.join(prefs.DATA_PATH, "templates.db"))
         conn.execute("PRAGMA foreign_keys=OFF;")
         t = round(time.time())
         cur = conn.cursor()
@@ -508,18 +508,18 @@ p  {
 
             if t["typeREMDCode"] != "":
                 cur = conn.cursor()
-                cur.execute("select code from fnsi_typeREMD where code=?", (t["typeREMDCode"],))
+                cur.execute("select code from fnsi_typeREMD where code=? and codeSystem=?", (t["typeREMDCode"],t["typeREMDCodeSystem"]))
                 code = cur.fetchone()
                 if code is None:
-                    loadFNSIref(conn, '1.2.643.5.1.13.13.11.1520', 'typeREMD', environ)
+                    loadFNSIref(conn, t["typeREMDCodeSystem"], 'typeREMD', environ)
                 cur.close()
 
             if t["typeMDCode"] != "":
                 cur = conn.cursor()
-                cur.execute("select code from fnsi_typeMD where code=?", (t["typeMDCode"],))
+                cur.execute("select code from fnsi_typeMD where code=? and codeSystem=?", (t["typeMDCode"],t["typeMDCodeSystem"]))
                 code = cur.fetchone()
                 if code is None:
-                    loadFNSIref(conn, '1.2.643.5.1.13.13.11.1522', 'typeMD', environ)
+                    loadFNSIref(conn, t["typeMDCode"], 'typeMD', environ)
                 cur.close()
 
         elif url[4] == 'DeleteFile':
@@ -685,18 +685,40 @@ p  {
             length = int(environ.get('CONTENT_LENGTH', '0'))
             params = environ['wsgi.input'].read(length).decode('utf-8')
             params_json = json.loads(params)
-            UUIDVisualizer = params_json['#value'][0]['Value']['#value']
+            params = params_json['#value']
+            t = {}
+            for p in params:
+                if p["name"]["#value"] == "UUIDVisualizer":
+                    t["UUIDVisualizer"] = p["Value"]["#value"]
+                elif p["name"]["#value"] == "Идентификатор":
+                    t["Идентификатор"] = p["Value"]["#value"]
+                elif p["name"]["#value"] == "ТипРЭМДCodeSystem":
+                    t["codeSystem"] = p["Value"]["#value"]
+                elif p["name"]["#value"] == "ТипРЭМДCode":
+                    t["code"] = p["Value"]["#value"]
+
             cur = conn.cursor()
-            cur.execute("select fileName from visualizer where UUIDVisualizer=?", (UUIDVisualizer,))
+            cur.execute("select fileName from visualizer where UUIDVisualizer=?", (t['UUIDVisualizer'],))
             fileName = cur.fetchone()
             cur.close()
 
             if fileName is None:
+                cur = conn.cursor()
+                cur.execute("select fileName from visualizer where id=?", (t['Идентификатор'],))
+                fileName = cur.fetchone()
+                cur.close()
+                if fileName is None:
+                    cur = conn.cursor()
+                    cur.execute("select fileName from visualizer where typeREMDCode=? and typeREMDCodeSystem=?", (t['ТипРЭМДCode'],t['ТипРЭМДCodeSystem']))
+                    fileName = cur.fetchone()
+                    cur.close()
+
+            if fileName is None:
                 conn.close()
-                raise Exception("File with uuid='"+UUIDVisualizer+"' not found")
+                raise Exception("File with uuid='"+t['UUIDVisualizer']+"', id='"+t['Идентификатор']+"', type REMD="+t['ТипРЭМДCode']+" "+t['ТипРЭМДCodeSystem']+" not found")
 
             print('{"#type": "jxs:string", "#value": "', sep='', end='', file=output)
-            file = open(prefs.DATA_PATH+'/'+UUIDVisualizer+"_"+fileName[0], "rb")
+            file = open(prefs.DATA_PATH+'/'+t['UUIDVisualizer']+"_"+fileName[0], "rb")
             print(base64.b64encode(file.read()).decode('ascii'), sep='', end='', file=output)
             file.close()
             print('"}', sep='', end='', file=output)
@@ -731,8 +753,12 @@ p  {
                     t["checkSum"] = p["Value"]["#value"]
                 elif p["name"]["#value"] == "ТипРЭМДCodeSystem":
                     t["codeSystem"] = p["Value"]["#value"]
+                    if t["codeSystem"] == "":
+                        t["codeSystem"] = None
                 elif p["name"]["#value"] == "ТипРЭМДCode":
                     t["code"] = p["Value"]["#value"]
+                    if t["code"] == "":
+                        t["code"] = None
                 elif p["name"]["#value"] == "ИмяФайлаСРаширением":
                     t["fileName"] = p["Value"]["#value"]
                 elif p["name"]["#value"] == "Комментарий":
@@ -805,14 +831,6 @@ p  {
 ]
 }''', sep='', end='', file=output)
 
-            if t["code"] != "":
-                cur = conn.cursor()
-                cur.execute("select code from fnsi_typeREMD where code=?", (t["code"],))
-                code = cur.fetchone()
-                if code is None:
-                    loadFNSIref(conn, '1.2.643.5.1.13.13.11.1520', 'typeREMD', environ)
-                cur.close()
-
         elif url[4] == 'DeleteXSLFile':
             found = True
             cur = conn.cursor()
@@ -869,7 +887,7 @@ p  {
         output = StringIO()
         print('{"templatesList":[', sep='', end='', file=output)
 
-        conn = sqlite3.connect(prefs.DATA_PATH+"/templates.db")
+        conn = sqlite3.connect(os.path.join(prefs.DATA_PATH, "templates.db"))
         cur = conn.cursor()
         SQLPacket = '''select fnsi_typeREMD.name, template.fileName
               from template 
@@ -927,16 +945,16 @@ p  {
 </head><body>
 <p>Актуальная версия ''', conf,''' - ''', cv, '''</p>
 <table width='100%' border=1>
-<th>ШМД &darr;</th>
+<tr><th>ШМД &darr;</th>
 <th>Тип РЭМД</th>
-<th>Тип ШМД</th>
+<th>Тип ШМД</th></tr>
 ''', sep='', end='', file=output)
 
-        conn = sqlite3.connect(prefs.DATA_PATH+"/templates.db")
+        conn = sqlite3.connect(os.path.join(prefs.DATA_PATH, "templates.db"))
         cur = conn.cursor()
         SQLPacket = '''select fnsi_typeREMD.name, template.fileName
               from template 
-              left join fnsi_typeREMD on fnsi_typeREMD.code=template.typeREMDCode 
+              left join fnsi_typeREMD on fnsi_typeREMD.code=template.typeREMDCode and fnsi_typeREMD.codeSystem=template.typeREMDCodeSystem
               where configName='МедицинаБольница' and configVersion=?
               order by fileName'''
         cur.execute(SQLPacket, (cv,))
@@ -962,7 +980,7 @@ p  {
                 "</td><td>", 
                 r[0] if r[0] is not None else "", 
                 "</td><td align='center'>",
-                shmd, "</td><td>", sep='', file=output)
+                shmd, "</td></tr>", sep='', file=output)
 
         cur.close()
         conn.close()
@@ -1000,25 +1018,25 @@ p  {
         print("</select></p>", sep='', file=output)
         print("<p>Фильтр на версии - ", ", ".join(CONFIG_VERSIONS)+". Базе данных версий может быть больше</p>", sep='', file=output)
 
-        conn = sqlite3.connect(prefs.DATA_PATH+"/templates.db")
+        conn = sqlite3.connect(os.path.join(prefs.DATA_PATH, "templates.db"))
         cur = conn.cursor()
         placeholders = ",".join("?" * len(CONFIG_VERSIONS))
         if len(url) == 2:
             cur.execute('''
-		select template.*, visualizer.fileName v_fileName, visualizer.description v_description 
-		from template 
-		left join visualizer on visualizer.id=template.id or (visualizer.typeREMDCode=template.typeREMDCode and visualizer.typeREMDCodeSystem=template.typeREMDCodeSystem)
-		where configVersion in (%s) 
-		order by configName, configVersion desc, dateUploaded desc''' % placeholders, CONFIG_VERSIONS)
+    		select template.*, visualizer.fileName v_fileName, visualizer.description v_description 
+    		from template 
+    		left join visualizer on visualizer.id=template.id or (visualizer.typeREMDCode=template.typeREMDCode and visualizer.typeREMDCodeSystem=template.typeREMDCodeSystem)
+    		where configVersion in (%s) 
+    		order by configName, configVersion desc, dateUploaded desc''' % placeholders, CONFIG_VERSIONS)
         else:
             t = CONFIG_VERSIONS.copy()
             t.append(CONFIG_NAMES[int(url[2])])
             cur.execute('''
-		select template.*, visualizer.fileName v_fileName, visualizer.description v_description 
-		from template 
-		left join visualizer on visualizer.id=template.id or (visualizer.typeREMDCode=template.typeREMDCode and visualizer.typeREMDCodeSystem=template.typeREMDCodeSystem)
-		where configVersion in (%s) and configName=? 
-		order by configName, configVersion desc, dateUploaded desc''' % placeholders, t)
+    		select template.*, visualizer.fileName v_fileName, visualizer.description v_description 
+    		from template 
+    		left join visualizer on visualizer.id=template.id or (visualizer.typeREMDCode=template.typeREMDCode and visualizer.typeREMDCodeSystem=template.typeREMDCodeSystem)
+    		where configVersion in (%s) and configName=? 
+    		order by configName, configVersion desc, dateUploaded desc''' % placeholders, t)
 
         arr = []
         for r in cur.fetchall():
@@ -1063,9 +1081,9 @@ p  {
             print("<tr ", "" if added else "class='added'", "" if deleted else "class='deleted'","><td>", 
                 r[0],"<br>", r[1], "</td><td>", 
                 r[2],"</td><td>", 
-                r[3], "<br><strong>Визуализатор:</strong> "+r[15]+" "+r[16] if r[15] is not None else "", "</td><td>", 
+                r[3], ("<br><strong>Визуализатор:</strong> "+r[15]+(" "+r[16] if r[16] is not None else "") if r[15] is not None else ""), "</td><td>", 
                 "<a href='https://nsi.rosminzdrav.ru/dictionaries/",r[6],"'>",r[5], "</a></td><td>", 
-                "<a href='https://nsi.rosminzdrav.ru/dictionaries/",r[10], "'>",r[9], "</a></td><td>", 
+                ("<a href='https://nsi.rosminzdrav.ru/dictionaries/"+r[10]+"'>" if r[10]!='' else ''),r[9], "</a></td><td>", 
                 escapeHTML(r[14]) if r[14] is not None else "", "</td><td>",
                 r[12], "</td><td>", 
                 r[13][:10], " ", r[13][11:16], "</td></tr>",
