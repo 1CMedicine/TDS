@@ -698,18 +698,18 @@ p  {
                     t["code"] = p["Value"]["#value"]
 
             cur = conn.cursor()
-            cur.execute("select fileName, UUIDVisualizer, checkSum from visualizer where UUIDVisualizer=?", (t['UUIDVisualizer'],))
+            cur.execute("select fileName, UUIDVisualizer, checkSum, id, typeREMDCode, typeREMDCodeSystem from visualizer where UUIDVisualizer=?", (t['UUIDVisualizer'],))
             fileName = cur.fetchone()
             cur.close()
 
             if fileName is None:
                 cur = conn.cursor()
-                cur.execute("select fileName, UUIDVisualizer, checkSum from visualizer where id=?", (t['Идентификатор'],))
+                cur.execute("select fileName, UUIDVisualizer, checkSum, id, typeREMDCode, typeREMDCodeSystem from visualizer where id=?", (t['Идентификатор'],))
                 fileName = cur.fetchone()
                 cur.close()
                 if fileName is None:
                     cur = conn.cursor()
-                    cur.execute("select fileName, UUIDVisualizer, checkSum from visualizer where typeREMDCode=? and typeREMDCodeSystem=?", (t['code'],t['codeSystem']))
+                    cur.execute("select fileName, UUIDVisualizer, checkSum, id, typeREMDCode, typeREMDCodeSystem from visualizer where typeREMDCode=? and typeREMDCodeSystem=?", (t['code'],t['codeSystem']))
                     fileName = cur.fetchone()
                     cur.close()
 
@@ -747,6 +747,36 @@ p  {
 "Value": {
 "#type": "jxs:string",
 "#value": "''',fileName[2], '''"
+}
+},
+{
+"name": {
+"#type": "jxs:string",
+"#value": "Идентификатор"
+},
+"Value": {
+"#type": "jxs:string",
+"#value": "''',fileName[3] if fileName[3] is not None else '', '''"
+}
+},
+{
+"name": {
+"#type": "jxs:string",
+"#value": "ТипРЭМДCode"
+},
+"Value": {
+"#type": "jxs:string",
+"#value": "''',fileName[4] if fileName[4] is not None else '', '''"
+}
+},
+{
+"name": {
+"#type": "jxs:string",
+"#value": "ТипРЭМДCodeSystem"
+},
+"Value": {
+"#type": "jxs:string",
+"#value": "''',fileName[5] if fileName[5] is not None else '', '''"
 }
 },
 {
