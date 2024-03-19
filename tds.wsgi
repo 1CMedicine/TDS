@@ -698,30 +698,71 @@ p  {
                     t["code"] = p["Value"]["#value"]
 
             cur = conn.cursor()
-            cur.execute("select fileName from visualizer where UUIDVisualizer=?", (t['UUIDVisualizer'],))
+            cur.execute("select fileName, UUIDVisualizer, checkSum from visualizer where UUIDVisualizer=?", (t['UUIDVisualizer'],))
             fileName = cur.fetchone()
             cur.close()
 
             if fileName is None:
                 cur = conn.cursor()
-                cur.execute("select fileName from visualizer where id=?", (t['Идентификатор'],))
+                cur.execute("select fileName, UUIDVisualizer, checkSum from visualizer where id=?", (t['Идентификатор'],))
                 fileName = cur.fetchone()
                 cur.close()
                 if fileName is None:
                     cur = conn.cursor()
-                    cur.execute("select fileName from visualizer where typeREMDCode=? and typeREMDCodeSystem=?", (t['ТипРЭМДCode'],t['ТипРЭМДCodeSystem']))
+                    cur.execute("select fileName, UUIDVisualizer, checkSum from visualizer where typeREMDCode=? and typeREMDCodeSystem=?", (t['code'],t['codeSystem']))
                     fileName = cur.fetchone()
                     cur.close()
 
             if fileName is None:
-                conn.close()
-                raise Exception("File with uuid='"+t['UUIDVisualizer']+"', id='"+t['Идентификатор']+"', type REMD="+t['ТипРЭМДCode']+" "+t['ТипРЭМДCodeSystem']+" not found")
+                print('''{"#type": "jv8:Structure","#value": []}''', sep='', end='', file=output)
+            else:
+                print('''{
+"#type": "jv8:Structure",
+"#value": [
+{
+"name": {
+"#type": "jxs:string",
+"#value": "УИДВизуализатора"
+},
+"Value": {
+"#type": "jv8:UUID",
+"#value": "''',fileName[1], '''"
+}
+},
+{
+"name": {
+"#type": "jxs:string",
+"#value": "ИмяФайла"
+},
+"Value": {
+"#type": "jxs:string",
+"#value": "''',fileName[0], '''"
+}
+},
+{
+"name": {
+"#type": "jxs:string",
+"#value": "КонтрольнаяСумма"
+},
+"Value": {
+"#type": "jxs:string",
+"#value": "''',fileName[2], '''"
+}
+},
+{
+"name": {
+"#type": "jxs:string",
+"#value": "Файл"
+},
+"Value": {
+"#type": "jxs:string",
+"#value": "''',  sep='', end='', file=output)
 
-            print('{"#type": "jxs:string", "#value": "', sep='', end='', file=output)
-            file = open(prefs.DATA_PATH+'/'+t['UUIDVisualizer']+"_"+fileName[0], "rb")
-            print(base64.b64encode(file.read()).decode('ascii'), sep='', end='', file=output)
-            file.close()
-            print('"}', sep='', end='', file=output)
+                file = open(prefs.DATA_PATH+'/'+fileName[1]+"_"+fileName[0], "rb")
+                print(base64.b64encode(file.read()).decode('ascii'), sep='', end='', file=output)
+                file.close()
+                print('''"}}]}''', sep='', end='', file=output)
+
 
         elif url[4] == 'UploadXSLFile':
             found = True
