@@ -790,6 +790,8 @@ p  {
             for p in params:
                 if p["name"]["#value"] == "Идентификатор":
                     t["id"] = p["Value"]["#value"]
+                    if t["id"] == "":
+                        t["id"] = None
                 elif p["name"]["#value"] == "КонтрольнаяСумма":
                     t["checkSum"] = p["Value"]["#value"]
                 elif p["name"]["#value"] == "ТипРЭМДCodeSystem":
@@ -847,7 +849,7 @@ p  {
                 cur.close()
                 conn.close()
                 start_response('409 Conflict', [('Content-Type', 'text/plain; charset=utf-8')])
-                return [("id='"+t["id"]+"', typeREMDCode='"+t["code"]+"', typeREMDCodeSystem='"+t["codeSystem"]+"'").encode('UTF-8')]
+                return [("Визуализатор с ключами: id='"+t["id"]+"', typeREMDCode='"+t["code"]+"', typeREMDCodeSystem='"+t["codeSystem"]+"' уже существует в базе").encode('UTF-8')]
 
             cur.close()
             conn.commit()
