@@ -600,7 +600,7 @@ p  {
 },
 "Value": {
 "#type": "jxs:string",
-"#value": "''',r[1], '''"
+"#value": "''',r[1] if r[1] is not None else '', '''"
 }
 },
 {
@@ -610,7 +610,7 @@ p  {
 },
 "Value": {
 "#type": "jxs:string",
-"#value": "''',r[2], '''"
+"#value": "''',r[2] if r[2] is not None else '', '''"
 }
 },
 {
@@ -620,7 +620,7 @@ p  {
 },
 "Value": {
 "#type": "jxs:string",
-"#value": "''',r[3], '''"
+"#value": "''',r[3] if r[3] is not None else '', '''"
 }
 },
 {
@@ -810,14 +810,16 @@ p  {
                     t["ДДанные"] = p["Value"]["#value"]
 
             cur = conn.cursor()
-            if t["id"] != "":
-                t["code"] = ""
-                t["codeSystem"] = ""
+            if t["id"] is not None:
+                t["code"] = None
+                t["codeSystem"] = None
                 cur.execute("select UUIDVisualizer, fileName from visualizer where id=?", (t["id"],))
-            elif t["code"] != "" and t["codeSystem"] != "":
+            elif t["code"] is not None and t["codeSystem"] is not None:
                 cur.execute("select UUIDVisualizer, fileName from visualizer where typeREMDCode=? and typeREMDCodeSystem=?", (t["code"], t["codeSystem"]))
             else:
-                raise Exception("Wrong parameters. Template id or (typeREMDCode, typeREMDCodeSystem) should not be empty")
+                start_response('409 Conflict', [('Content-Type', 'text/plain; charset=utf-8')])
+                return [("Wrong parameters. Template id or (typeREMDCode, typeREMDCodeSystem) should not be empty").encode('UTF-8')]
+
             rec = cur.fetchone()
             cur.close()
             if rec is not None:
